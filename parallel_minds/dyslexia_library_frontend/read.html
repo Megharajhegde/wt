@@ -486,26 +486,210 @@
             return null;
         }
 
-        async function loadReadingProgress() {
+        // --- DASHBOARD PROGRESS TRACKING ---
+        let activeSecondsPending = 0;
+        let progressFlushTimer = null;
+        let lastProgressSentAt = Date.now();
+        let readerContentLoaded = false;
+
+        // Count reading time only while the page is visible and the reader is active.
+        // If the user leaves the page open without interacting, pause the timer after 60s.
+        const READING_IDLE_TIMEOUT_MS = 60 * 1000;
+        let lastReaderActivityAt = Date.now();
+
+        function markReaderActivity() {
+            lastReaderActivityAt = Date.now();
+        }
+
+        ['scroll', 'keydown', 'click', 'touchstart', 'mousemove'].forEach(eventName => {
+            document.addEventListener(eventName, markReaderActivity, { passive: true });
+        });
+
+        function getScrollProgressPercent() {
+            const container = document.getElementById('reader-container');
+            if (!container) return 0;
+            const maxScroll = container.scrollHeight - container.clientHeight;
+            if (maxScroll <= 0) return readerContentLoaded ? 100 : 0;
+            return Math.max(0, Math.min(100, (container.scrollTop / maxScroll) * 100));
+        }
+
+        let lastSentProgressPercent = null;
+        async function sendDashboardProgress(secondsDelta = 0, useBeacon = false) {
             const userId = getUserId();
-            if (!userId || !bookId) return; 
-            
+            if (!userId || !bookId || !readerContentLoaded) return;
+            const percent = Number(getScrollProgressPercent().toFixed(1));
+            const seconds = Math.max(0, Math.floor(secondsDelta));
+            // Skip no-op writes: if nothing changed, don't hit the server (a DB write can
+            // trigger Live Server / dev-server auto-reload in the browser).
+            if (seconds === 0 && percent === lastSentProgressPercent) return;
+            lastSentProgressPercent = percent;
+            const payload = JSON.stringify({
+                user_id: Number(userId), book_id: Number(bookId),
+                progress_percent: percent,
+                seconds_delta: seconds
+            });
+            if (useBeacon && navigator.sendBeacon) {
+                navigator.sendBeacon('http://127.0.0.1:5000/api/progress', new Blob([payload], {type: 'application/json'}));
+                return;
+            }
             try {
-                const response = await fetch(`http://127.0.0.1:5000/api/bookmarks/${userId}/${bookId}`);
-                const data = await response.json();
-                
-                if (data.position > 0) {
-                    // Because your layout uses a scrolling #reader-container instead of the window,
-                    // we must scroll the container, not the window.
-                    const container = document.getElementById('reader-container');
-                    container.scrollTo({
-                        top: data.position,
-                        behavior: 'smooth'
-                    });
-                    console.log(`Resumed reading at pixel position: ${data.position}`);
+                await fetch('http://127.0.0.1:5000/api/progress', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, body: payload,
+                    keepalive: useBeacon
+                });
+            } catch (error) { console.warn('Could not sync dashboard progress.', error); }
+        }
+
+        function queueProgressSnapshot() {
+            // Scrolling updates the local position only. Dashboard data syncs on a timer
+            // and when leaving the page, avoiding an API request for every scroll pause.
+            rememberPositionLocally();
+        }
+
+        function flushPendingReadingTime(useBeacon = false) {
+            const seconds = activeSecondsPending;
+            activeSecondsPending = 0;
+            sendDashboardProgress(seconds, useBeacon);
+        }
+
+        setInterval(() => {
+            const recentlyActive = Date.now() - lastReaderActivityAt < READING_IDLE_TIMEOUT_MS;
+            if (readerContentLoaded && !document.hidden && recentlyActive && getUserId()) {
+                activeSecondsPending += 1;
+            }
+        }, 1000);
+
+        // Server sync is manual only: it happens when the user clicks "Save Progress to Cloud".
+        // Reading time keeps accumulating locally until then.
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                rememberPositionLocally();
+                // Stop any text-to-speech when the reader tab is hidden.
+                synth.cancel();
+                document.getElementById('tts-play-btn').style.display = 'block';
+                document.getElementById('tts-stop-btn').style.display = 'none';
+                stopAiTTS();
+            } else {
+                markReaderActivity();
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            rememberPositionLocally();
+            synth.cancel();
+        });
+
+        // --- AUTO-SAVE READER POSITION ---
+        // Keep a local checkpoint immediately, then sync it to the existing bookmarks API.
+        // This protects the user's position if the tab reloads or the server temporarily disconnects.
+        let bookmarkSaveTimer = null;
+        let lastBookmarkSyncAt = 0;
+        let bookmarkSyncInFlight = false;
+        let lastSyncedPosition = null;
+
+        function getLocalBookmarkKey() {
+            return `readapt_reader_position_${getUserId() || 'guest'}_${bookId || 'unknown'}`;
+        }
+
+        function rememberPositionLocally() {
+            const container = document.getElementById('reader-container');
+            if (!container || !readerContentLoaded || !bookId) return;
+            try {
+                localStorage.setItem(getLocalBookmarkKey(), JSON.stringify({
+                    position: Math.max(0, Math.round(container.scrollTop)),
+                    savedAt: Date.now()
+                }));
+            } catch (error) {
+                console.warn('Could not save local reading position.', error);
+            }
+        }
+
+        async function syncBookmarkPosition(useBeacon = false) {
+            const userId = getUserId();
+            const container = document.getElementById('reader-container');
+            if (!userId || !bookId || !container || !readerContentLoaded) return;
+
+            const position = Math.max(0, Math.round(container.scrollTop));
+            rememberPositionLocally();
+
+            const now = Date.now();
+            if (bookmarkSyncInFlight || (!useBeacon && now - lastBookmarkSyncAt < 5000)) return;
+            // Nothing changed since the last successful sync -> no server write.
+            if (position === lastSyncedPosition) return;
+            lastSyncedPosition = position;
+
+            const payload = JSON.stringify({
+                user_id: Number(userId),
+                book_id: Number(bookId),
+                position: position
+            });
+
+            if (useBeacon && navigator.sendBeacon) {
+                // The existing Flask route accepts JSON; sendBeacon is best-effort during unload.
+                const blob = new Blob([payload], { type: 'application/json' });
+                navigator.sendBeacon('http://127.0.0.1:5000/api/bookmarks', blob);
+                lastBookmarkSyncAt = now;
+                return;
+            }
+
+            bookmarkSyncInFlight = true;
+            lastBookmarkSyncAt = now;
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/bookmarks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: useBeacon
+                });
+                if (!response.ok) {
+                    console.warn('Could not sync bookmark position to the server.');
                 }
             } catch (error) {
-                console.error("Failed to load bookmark.", error);
+                console.warn('Bookmark sync failed; local checkpoint is retained.', error);
+            } finally {
+                bookmarkSyncInFlight = false;
+            }
+        }
+
+        function queueBookmarkSave() {
+            rememberPositionLocally();
+            clearTimeout(bookmarkSaveTimer);
+            bookmarkSaveTimer = setTimeout(() => syncBookmarkPosition(false), 1200);
+        }
+
+        async function loadReadingProgress() {
+            const userId = getUserId();
+            if (!bookId) return;
+
+            const container = document.getElementById('reader-container');
+            let localPosition = null;
+
+            // Restore the last local checkpoint immediately, even if the API is offline.
+            try {
+                const localData = JSON.parse(localStorage.getItem(getLocalBookmarkKey()) || 'null');
+                if (localData && Number.isFinite(Number(localData.position))) {
+                    localPosition = Math.max(0, Number(localData.position));
+                    container.scrollTop = localPosition;
+                }
+            } catch (error) {
+                console.warn('Could not restore local reading position.', error);
+            }
+
+            if (!userId) return;
+
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/bookmarks/${userId}/${bookId}`);
+                if (!response.ok) return;
+                const data = await response.json();
+                const serverPosition = Math.max(0, Number(data.position) || 0);
+
+                // A local checkpoint may be newer than the last successful server sync.
+                const restorePosition = localPosition !== null ? localPosition : serverPosition;
+                if (restorePosition > 0) {
+                    container.scrollTo({ top: restorePosition, behavior: 'auto' });
+                }
+            } catch (error) {
+                console.warn('Could not load server bookmark; keeping local position.', error);
             }
         }
 
@@ -531,6 +715,8 @@
                 });
 
                 if (response.ok) {
+                    flushPendingReadingTime(false);
+                    sendDashboardProgress(0);
                     // FIX: Target the button by ID instead of the fleeting event object
                     const btn = document.getElementById('save-progress-btn');
                     const originalText = btn.innerText;
@@ -568,6 +754,7 @@
                     if (part.trim().length === 0) return part;
                     return `<span class="word-span" onclick="speakWord(this)">${part}</span>`;
                 }).join('');
+                readerContentLoaded = true;
                 setTimeout(loadReadingProgress, 500);
 
             } catch (error) {
@@ -822,12 +1009,22 @@
         readerContainer.addEventListener('scroll', () => {
             const scrollTop = readerContainer.scrollTop;
             const scrollHeight = readerContainer.scrollHeight - readerContainer.clientHeight;
-            const scrollPercentage = (scrollTop / scrollHeight) * 100;
+            const scrollPercentage = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
             document.getElementById('progress-bar').style.width = scrollPercentage + '%';
+            queueProgressSnapshot(); // local checkpoint only
         });
 
+        // Keep a local checkpoint while reading. Cloud bookmark sync happens only when
+        // the user presses Save Progress or when the page is being closed/reloaded.
+        setInterval(() => {
+            if (readerContentLoaded && !document.hidden) rememberPositionLocally();
+        }, 5000);
+
         loadBookContent();
-        window.onbeforeunload = () => synth.cancel();
+        window.onbeforeunload = () => {
+            rememberPositionLocally();
+            synth.cancel();
+        };
         
     </script>
 </body>

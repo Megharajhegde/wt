@@ -7,165 +7,236 @@
     <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-color: #007bff;
-            --bg-color: #f4f4f9;
-            --text-color: #333;
+            --primary-color: #5b5ce2;
+            --primary-dark: #4546c8;
+            --bg-color: #f3f5ff;
+            --text-color: #20223a;
+            --muted-color: #777b96;
+            --border-color: #e3e6f2;
         }
+
+        * { box-sizing: border-box; }
 
         body {
             font-family: 'Lexend', sans-serif;
-            background-color: var(--bg-color);
+            background:
+                radial-gradient(circle at 12% 15%, rgba(116, 119, 255, .18), transparent 30%),
+                radial-gradient(circle at 90% 85%, rgba(81, 204, 190, .18), transparent 28%),
+                var(--bg-color);
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 28px 16px;
             color: var(--text-color);
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            z-index: -1;
+            border-radius: 50%;
+            filter: blur(1px);
+            pointer-events: none;
+        }
+        body::before {
+            width: 230px; height: 230px;
+            background: linear-gradient(135deg, rgba(109, 111, 255, .17), rgba(109, 111, 255, .02));
+            top: 7%; right: 8%;
+        }
+        body::after {
+            width: 170px; height: 170px;
+            background: linear-gradient(135deg, rgba(64, 190, 177, .16), rgba(64, 190, 177, .02));
+            bottom: 5%; left: 7%;
+        }
+
+
+        /* Static abstract SVG artwork behind the auth card */
+        .ambient-art {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        .ambient-art .orbit {
+            fill: none;
+            stroke: rgba(100, 104, 230, .18);
+            stroke-width: 1.2;
+        }
+        .ambient-art .spark {
+            fill: #777bf1;
+            opacity: .45;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .auth-container { animation: none; }
         }
 
         .auth-container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+            background: rgba(255, 255, 255, .94);
+            padding: 38px 40px 32px;
+            border: 1px solid rgba(255, 255, 255, .9);
+            border-radius: 24px;
+            box-shadow: 0 24px 70px rgba(50, 55, 120, .13), 0 3px 10px rgba(50, 55, 120, .04);
             width: 100%;
-            max-width: 400px;
-            border-top: 5px solid var(--primary-color);
+            max-width: 440px;
+            position: relative;
+            overflow: hidden;
+            animation: card-enter .45s ease-out both;
+        }
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #6869f0, #54cdbb, #8b7bfa);
+        }
+        @keyframes card-enter {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* --- NEW: Logo Styling for Auth Page --- */
         .auth-logo {
-            height: 60px;
-            width: auto;
-            margin-bottom: 15px;
-            border-radius: 8px;
+            height: 64px;
+            max-width: 180px;
+            object-fit: contain;
+            margin: 0 auto 20px;
+            border-radius: 12px;
             display: block;
-            margin-left: auto;
-            margin-right: auto;
         }
 
-        h2 { 
-            color: #1a1a1a; 
-            margin-top: 0; 
-            text-align: center; 
-            font-size: 2rem;
-            margin-bottom: 5px;
+        h2 {
+            color: #20223a;
+            margin: 0;
+            text-align: center;
+            font-size: clamp(1.7rem, 5vw, 2rem);
+            line-height: 1.25;
+            letter-spacing: -.7px;
+            font-weight: 500;
         }
-
         p.subtitle {
             text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 0.95rem;
+            color: var(--muted-color);
+            margin: 10px 0 28px;
+            font-size: .93rem;
+            line-height: 1.6;
         }
 
-        .input-group { margin-bottom: 20px; }
-        
-        label { 
-            display: block; 
-            margin-bottom: 8px; 
-            font-weight: 500; 
-            color: #444; 
-            font-size: 0.9rem;
+        .input-group { margin-bottom: 19px; }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #393c58;
+            font-size: .86rem;
         }
-
-        /* --- Updated Input Styling for Password Toggle --- */
-        .password-wrapper {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
+        .password-wrapper { position: relative; display: flex; align-items: center; }
         input {
             width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 16px;
+            padding: 14px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 15px;
             font-family: 'Lexend', sans-serif;
-            box-sizing: border-box;
-            transition: border-color 0.2s;
+            color: var(--text-color);
+            background: #fbfcff;
+            transition: border-color .2s, box-shadow .2s, background .2s;
         }
-        
-        /* Make room for the eye icon on the right */
-        input[type="password"],
-        input#password {
-            padding-right: 45px; 
-        }
-
+        input::placeholder { color: #a5a8bc; }
+        input[type="password"], input#password { padding-right: 48px; }
+        input:hover { border-color: #c9ccef; }
         input:focus {
             outline: none;
+            background: #fff;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            box-shadow: 0 0 0 4px rgba(91, 92, 226, .12);
         }
-
-        /* The Show Password Button */
         .toggle-password-btn {
             position: absolute;
-            right: 10px;
-            background: none;
-            border: none;
-            color: #666;
+            right: 9px;
+            background: transparent;
+            border: 0;
+            border-radius: 8px;
+            color: #777b96;
             cursor: pointer;
-            font-size: 1.2rem;
-            padding: 5px;
-            transition: color 0.2s;
+            font-size: 1.1rem;
+            padding: 7px;
+            line-height: 1;
+            transition: background .2s, color .2s;
         }
-        .toggle-password-btn:hover {
-            color: var(--primary-color);
-        }
+        .toggle-password-btn:hover { color: var(--primary-color); background: #f0f0ff; }
 
         button.primary-submit {
             width: 100%;
-            padding: 14px;
-            background: var(--primary-color);
+            padding: 15px 18px;
+            margin-top: 3px;
+            background: linear-gradient(135deg, #6869ed, #5354d5);
             color: white;
             border: none;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 12px;
+            font-family: 'Lexend', sans-serif;
+            font-weight: 500;
             cursor: pointer;
-            font-size: 16px;
-            transition: background 0.2s, transform 0.1s;
+            font-size: 15px;
+            box-shadow: 0 8px 18px rgba(91, 92, 226, .22);
+            transition: transform .18s, box-shadow .18s, filter .18s;
         }
-
-        button.primary-submit:hover { background: #0056b3; }
-        button.primary-submit:active { transform: scale(0.98); }
-        button.primary-submit:disabled { background: #ccc; cursor: not-allowed; }
+        button.primary-submit:hover { filter: brightness(1.04); box-shadow: 0 11px 23px rgba(91, 92, 226, .28); transform: translateY(-1px); }
+        button.primary-submit:active { transform: translateY(0); }
+        button.primary-submit:disabled { background: #b8b9d6; box-shadow: none; cursor: not-allowed; transform: none; }
 
         .toggle-link {
             text-align: center;
-            margin-top: 25px;
-            font-size: 0.9rem;
-            color: #666;
+            margin-top: 23px;
+            font-size: .88rem;
+            color: var(--muted-color);
+            line-height: 1.7;
         }
-        
-        .toggle-link a { 
-            color: var(--primary-color); 
-            text-decoration: none; 
-            cursor: pointer; 
-            font-weight: bold; 
+        .toggle-link a {
+            color: var(--primary-color);
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 500;
+            margin-left: 3px;
         }
-
+        .toggle-link a:hover { color: var(--primary-dark); text-decoration: underline; }
         .guest-link {
             display: block;
             text-align: center;
-            margin-top: 15px;
-            font-size: 0.9rem;
-            color: #888;
+            margin-top: 18px;
+            font-size: .86rem;
+            color: #8589a2;
             text-decoration: none;
+            transition: color .2s;
         }
-        .guest-link:hover { color: #333; text-decoration: underline; }
+        .guest-link:hover { color: var(--primary-dark); text-decoration: underline; }
 
-        #error-msg { 
-            color: #dc3545; 
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 14px; 
-            text-align: center; 
-            margin-bottom: 20px; 
-            display: none; 
+        #error-msg {
+            color: #a72e45;
+            background: #fff0f2;
+            border: 1px solid #ffd5dc;
+            padding: 12px 14px;
+            border-radius: 11px;
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: left;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 18px 12px; }
+            .auth-container { padding: 32px 23px 26px; border-radius: 20px; }
+            .auth-logo { height: 56px; margin-bottom: 17px; }
+            p.subtitle { margin-bottom: 24px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; transition: none !important; }
         }
     </style>
 </head>
@@ -314,6 +385,38 @@
         }
     });
 </script>
+
+<svg class="ambient-art" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    <defs>
+        <linearGradient id="abyssWave" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#7779f6" stop-opacity=".15"/>
+            <stop offset="1" stop-color="#57cfc0" stop-opacity=".08"/>
+        </linearGradient>
+        <radialGradient id="abyssGlow">
+            <stop offset="0" stop-color="#8b8dff" stop-opacity=".22"/>
+            <stop offset="1" stop-color="#8b8dff" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="abyssLine" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#777bf1" stop-opacity=".18"/>
+            <stop offset="1" stop-color="#4bc6b8" stop-opacity=".1"/>
+        </linearGradient>
+    </defs>
+    <circle cx="170" cy="170" r="250" fill="url(#abyssGlow)"/>
+    <circle cx="1280" cy="720" r="320" fill="url(#abyssGlow)"/>
+    <path d="M-80 650 C180 490 270 850 520 690 S900 500 1110 660 S1370 850 1530 660 L1530 980 L-80 980Z" fill="url(#abyssWave)"/>
+    <path d="M-60 700 C190 540 300 880 540 730 S910 550 1120 700 S1380 880 1510 710" fill="none" stroke="url(#abyssLine)" stroke-width="2"/>
+    <path d="M-60 740 C190 580 300 920 540 770 S910 590 1120 740 S1380 920 1510 750" fill="none" stroke="url(#abyssLine)" stroke-width="1.5"/>
+    <circle class="orbit" cx="180" cy="720" r="105"/>
+    <circle class="orbit" cx="180" cy="720" r="135"/>
+    <circle class="orbit" cx="1260" cy="185" r="95"/>
+    <circle class="orbit" cx="1260" cy="185" r="125"/>
+    <circle class="spark" cx="180" cy="585" r="3"/>
+    <circle class="spark" cx="315" cy="720" r="2.5"/>
+    <circle class="spark" cx="1260" cy="60" r="3"/>
+    <circle class="spark" cx="1385" cy="185" r="2.5"/>
+    <path d="M80 250 l6 14 14 6 -14 6 -6 14 -6 -14 -14 -6 14 -6Z" fill="#777bf1" opacity=".25"/>
+    <path d="M1330 470 l5 11 11 5 -11 5 -5 11 -5 -11 -11 -5 11 -5Z" fill="#54cdbb" opacity=".3"/>
+</svg>
 
 </body>
 </html>

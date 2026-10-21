@@ -16,8 +16,8 @@ import traceback
 import pdfplumber
 from flask import request, jsonify
 from models import db, Book
-from models import ActivityLog
-from datetime import datetime
+from models import ActivityLog, ReadingProgress, ReadingSession
+from datetime import datetime, date, timedelta
 
 # --- HELPER FUNCTION: Fire and Forget Logging ---
 def log_activity(user_id, action_description):
@@ -375,3 +375,112 @@ def get_bookmark(user_id, book_id):
     else:
         # If no bookmark exists, return 0 to start at the beginning
         return jsonify({'position': 0}), 200
+
+# --- READING PROGRESS DASHBOARD ---
+def _can_read_book(user_id, book):
+    return book.source == 'public' or book.uploaded_by == user_id
+
+
+@api.route('/progress', methods=['POST'])
+def record_reading_progress():
+    """Save a progress snapshot and add active reading time to today's session."""
+    data = request.get_json(silent=True) or {}
+    user_id = data.get('user_id')
+    book_id = data.get('book_id')
+    if not user_id or not book_id:
+        return jsonify({'error': 'user_id and book_id are required.'}), 400
+    user = db.session.get(User, user_id)
+    book = db.session.get(Book, book_id)
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+    if not book or not _can_read_book(user.id, book):
+        return jsonify({'error': 'Book not found or access denied.'}), 404
+
+    try:
+        percent = float(data.get('progress_percent', 0))
+        seconds_delta = int(data.get('seconds_delta', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'Progress and seconds must be numeric.'}), 400
+    percent = max(0.0, min(100.0, percent))
+    seconds_delta = max(0, min(seconds_delta, 300))  # limit each request to five minutes
+    now = datetime.utcnow()
+
+    progress = ReadingProgress.query.filter_by(user_id=user.id, book_id=book.id).first()
+    if progress is None:
+        progress = ReadingProgress(user_id=user.id, book_id=book.id)
+        db.session.add(progress)
+    progress.progress_percent = max(progress.progress_percent or 0, percent) if percent < 100 else 100.0
+    # Keep the saved percentage current even if the reader moves backwards.
+    progress.progress_percent = percent
+    progress.total_seconds = (progress.total_seconds or 0) + seconds_delta
+    progress.last_read_at = now
+    progress.completed = percent >= 95.0
+
+    if seconds_delta > 0:
+        today = date.today()
+        session = ReadingSession.query.filter_by(user_id=user.id, book_id=book.id, session_date=today).first()
+        if session is None:
+            session = ReadingSession(user_id=user.id, book_id=book.id, session_date=today, seconds_read=0)
+            db.session.add(session)
+        session.seconds_read += seconds_delta
+        session.updated_at = now
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return jsonify({'error': 'Could not save reading progress.'}), 500
+    return jsonify({'message': 'Progress saved.', 'progress_percent': progress.progress_percent,
+                    'total_seconds': progress.total_seconds, 'completed': progress.completed}), 200
+
+
+@api.route('/progress/<int:user_id>', methods=['GET'])
+def get_reading_dashboard(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({'error': 'User not found.'}), 404
+
+    rows = (db.session.query(ReadingProgress, Book)
+            .join(Book, ReadingProgress.book_id == Book.id)
+            .filter(ReadingProgress.user_id == user.id)
+            .order_by(ReadingProgress.last_read_at.desc()).all())
+    books = []
+    total_seconds = 0
+    completed_count = 0
+    for progress, book in rows:
+        # Do not expose progress for books that are no longer accessible to this user.
+        if not _can_read_book(user.id, book):
+            continue
+        seconds = int(progress.total_seconds or 0)
+        total_seconds += seconds
+        completed_count += int(bool(progress.completed))
+        books.append({
+            'book_id': book.id, 'title': book.title, 'author': book.author or 'Unknown Author',
+            'progress_percent': round(float(progress.progress_percent or 0), 1),
+            'total_seconds': seconds, 'last_read_at': progress.last_read_at.isoformat() + 'Z' if progress.last_read_at else None,
+            'completed': bool(progress.completed), 'source': book.source
+        })
+
+    today = date.today()
+    week_start = today - timedelta(days=6)
+    sessions = ReadingSession.query.filter(
+        ReadingSession.user_id == user.id,
+        ReadingSession.session_date >= week_start,
+        ReadingSession.session_date <= today
+    ).all()
+    daily = { (week_start + timedelta(days=i)).isoformat(): 0 for i in range(7) }
+    for session in sessions:
+        key = session.session_date.isoformat()
+        if key in daily:
+            daily[key] += int(session.seconds_read or 0)
+
+    tracked_books = len(books)
+    average_progress = round(sum(item['progress_percent'] for item in books) / tracked_books, 1) if tracked_books else 0
+    return jsonify({
+        'stats': {
+            'books_started': tracked_books, 'books_completed': completed_count,
+            'total_seconds': total_seconds, 'average_progress': average_progress
+        },
+        'daily_activity': [{'date': key, 'seconds': value} for key, value in daily.items()],
+        'books': books
+    }), 200

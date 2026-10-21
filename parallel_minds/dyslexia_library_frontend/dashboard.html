@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReadApt | Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--blue:#1769aa;--green:#27864b;--red:#c93636;--bg:#f3f6fb;--ink:#172435;--muted:#667487;--line:#e2e8f0;--card:#fff}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:'Atkinson Hyperlegible',system-ui,sans-serif;line-height:1.5}
+    a{color:inherit}.topbar{background:#fff;border-bottom:1px solid var(--line);padding:16px clamp(16px,4vw,48px);display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .brand{font-size:1.35rem;font-weight:700;color:var(--blue)}.nav{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.nav a,.btn{border:0;border-radius:9px;padding:10px 14px;text-decoration:none;font:inherit;font-weight:700;cursor:pointer}.nav a{background:#edf4fc;color:#194f82}.nav a:hover{background:#dceafa}
+    main{max-width:1300px;margin:0 auto;padding:30px clamp(14px,3vw,32px) 60px}.heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}.heading h1{margin:0;font-size:clamp(1.8rem,3vw,2.5rem)}.muted{color:var(--muted)}.btn{background:var(--blue);color:white}.btn:hover{filter:brightness(.94)}.btn.secondary{background:#e8eef6;color:#233c59}.btn.danger{background:var(--red)}.btn.small{font-size:.88rem;padding:7px 10px}
+    .notice{padding:14px 16px;border-radius:10px;margin:0 0 18px;background:#fff4df;color:#704a00;border:1px solid #f2d59a}.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-bottom:24px}.stat,.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 5px 18px rgba(30,55,90,.045)}.stat{padding:22px}.stat .label{color:var(--muted);font-weight:700}.stat .value{font-size:2.3rem;font-weight:700;margin-top:4px}.stat.users .value{color:var(--blue)}.stat.books .value{color:var(--green)}
+    .panel{padding:22px;margin-bottom:22px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}.panel h2{font-size:1.25rem;margin:0}.table-wrap{width:100%;overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:680px;font-size:.94rem}th,td{text-align:left;padding:13px 12px;border-bottom:1px solid var(--line);vertical-align:middle}th{background:#f6f8fb;color:#44556a;font-size:.84rem;text-transform:uppercase;letter-spacing:.03em}tbody tr:hover{background:#fafcff}.role{display:inline-block;background:#e7f5ec;color:#1d7139;border-radius:20px;padding:3px 9px;font-size:.78rem;font-weight:700}.actions{display:flex;gap:7px;flex-wrap:wrap}.empty{color:var(--muted);text-align:center;padding:22px}.student-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.student-book{border:1px solid var(--line);background:#f9fbfe;border-radius:12px;padding:16px;overflow-wrap:anywhere}.student-book strong{display:block;margin-bottom:5px}.logs{background:#101a27;color:#e8f2ff;border-radius:12px;padding:16px;height:280px;overflow:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace}.log{border-bottom:1px solid #263548;padding:8px 0;overflow-wrap:anywhere}.log:last-child{border:0}.log-time{color:#9aaec6}.log-user{color:#ffd166}.error{color:var(--red)}
+    @media(min-width:800px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.panel,.stat{padding:16px}.stat .value{font-size:1.9rem}.heading{align-items:stretch}}
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="brand">📘 ReadApt <span class="muted">/ Admin</span></div>
+    <div class="nav"><a href="index.html">← Back to Library</a><a href="#users">Users</a><a href="#library">Library</a><a href="#logs">Audit Logs</a><a href="#" id="logout-link">Log out</a></div>
+  </nav>
+  <main>
+    <div class="heading"><div><h1>Admin Dashboard</h1><div class="muted" id="admin-welcome">Manage users, books, and system activity.</div></div><button class="btn secondary" id="refresh-all">↻ Refresh dashboard</button></div>
+    <div id="page-message" class="notice" hidden></div>
+    <section class="stats" aria-label="Platform statistics">
+      <div class="stat users"><div class="label">Registered users</div><div class="value" id="stat-users">—</div></div>
+      <div class="stat books"><div class="label">Total books</div><div class="value" id="stat-books">—</div></div>
+    </section>
+    <section class="panel" id="users">
+      <div class="panel-head"><h2>User Management</h2><span class="muted" id="user-count"></span></div>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody id="admin-user-table"><tr><td colspan="5" class="empty">Loading users…</td></tr></tbody></table></div>
+    </section>
+    <section class="panel" id="library">
+      <div class="panel-head"><h2>Global Library Management</h2><button class="btn secondary small" id="refresh-books">↻ Refresh library</button></div>
+      <div class="table-wrap"><table><thead><tr><th>ID</th><th>Title</th><th>Author</th><th>Source</th><th>Action</th></tr></thead><tbody id="admin-books-table"><tr><td colspan="5" class="empty">Loading books…</td></tr></tbody></table></div>
+    </section>
+    <section class="panel" id="student-books-panel" hidden>
+      <div class="panel-head"><h2 id="student-books-title">Books uploaded by student</h2><button class="btn secondary small" id="close-student-books">Close section</button></div>
+      <div id="student-books-list" class="student-grid"></div>
+    </section>
+    <section class="panel" id="logs">
+      <div class="panel-head"><h2>System Audit Logs</h2><button class="btn secondary small" id="refresh-logs">↻ Refresh logs</button></div>
+      <div class="logs" id="admin-logs-container">Loading system logs…</div>
+    </section>
+  </main>
+<script>
+(() => {
+  'use strict';
+  const API = 'http://127.0.0.1:5000/api';
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem('user') || 'null'); } catch (_) { user = null; }
+  const $ = id => document.getElementById(id);
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  function message(text, isError=false) { const el=$('page-message'); el.textContent=text; el.hidden=!text; el.style.background=isError?'#fff0f0':'#fff4df'; el.style.color=isError?'#8d2020':'#704a00'; }
+  function requireAdmin() {
+    if (!user || user.role !== 'admin' || user.id == null) {
+      message('Admin access is required. Redirecting to the library…', true);
+      setTimeout(() => { window.location.href = 'index.html'; }, 1100);
+      return false;
+    }
+    $('admin-welcome').textContent = `Signed in as ${user.name || 'Administrator'}. Manage users, books, and system activity.`;
+    return true;
+  }
+  async function request(path, options={}) {
+    const headers = Object.assign({}, options.headers || {}, {'User-Id': String(user.id)});
+    const response = await fetch(API + path, Object.assign({}, options, {headers}));
+    let data={}; try { data=await response.json(); } catch (_) {}
+    if (response.status === 403 || response.status === 401) { message('Your admin session is not authorized. Please sign in with an administrator account.', true); throw new Error(data.error || 'Unauthorized'); }
+    if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
+    return data;
+  }
+  async function loadAdminData() {
+    const tbody=$('admin-user-table'); tbody.innerHTML='<tr><td colspan="5" class="empty">Loading users…</td></tr>';
+    try {
+      const data=await request(`/admin/dashboard?user_id=${encodeURIComponent(user.id)}`);
+      $('stat-users').textContent=data.total_users ?? 0; $('stat-books').textContent=data.total_books ?? 0; $('user-count').textContent=`${(data.users||[]).length} accounts`;
+      tbody.innerHTML='';
+      (data.users||[]).forEach(u=>{
+        const tr=document.createElement('tr');
+        const actions=u.role==='admin' ? '<span class="muted">Protected</span>' : `<div class="actions"><button class="btn secondary small" data-view-user="${Number(u.id)}" data-user-name="${esc(u.name)}">📚 View books</button><button class="btn danger small" data-delete-user="${Number(u.id)}">Delete</button></div>`;
+        tr.innerHTML=`<td>${Number(u.id)}</td><td><strong>${esc(u.name)}</strong></td><td>${esc(u.email)}</td><td><span class="role">${esc(u.role)}</span></td><td>${actions}</td>`;
+        tbody.appendChild(tr);
+      });
+      if (!(data.users||[]).length) tbody.innerHTML='<tr><td colspan="5" class="empty">No users found.</td></tr>';
+    } catch(e) { tbody.innerHTML=`<tr><td colspan="5" class="empty error">${esc(e.message || 'Could not load users.')}</td></tr>`; }
+  }
+  async function loadAdminBooks() {
+    const tbody=$('admin-books-table'); tbody.innerHTML='<tr><td colspan="5" class="empty">Loading books…</td></tr>';
+    try {
+      const data=await request('/books'); tbody.innerHTML='';
+      (data.books||[]).forEach(book=>{
+        const tr=document.createElement('tr'); const source=book.source==='public'?'PUBLIC':'PRIVATE';
+        tr.innerHTML=`<td>#${Number(book.id)}</td><td><strong>${esc(book.title)}</strong></td><td>${esc(book.author || 'Unknown')}</td><td><span class="role">${source}</span></td><td><button class="btn danger small" data-delete-book="${Number(book.id)}" data-book-title="${esc(book.title)}">Delete book</button></td>`;
+        tbody.appendChild(tr);
+      });
+      if (!(data.books||[]).length) tbody.innerHTML='<tr><td colspan="5" class="empty">No books in the library.</td></tr>';
+    } catch(e) { tbody.innerHTML=`<tr><td colspan="5" class="empty error">${esc(e.message || 'Could not load books.')}</td></tr>`; }
+  }
+  async function viewStudentBooks(studentId, studentName) {
+    const panel=$('student-books-panel'), list=$('student-books-list'); panel.hidden=false; $('student-books-title').textContent=`Books uploaded by ${studentName}`; list.innerHTML='<p class="muted">Loading books…</p>';
+    try {
+      const data=await request(`/admin/users/${studentId}/books`); list.innerHTML='';
+      (data.books||[]).forEach(book=>{const card=document.createElement('div');card.className='student-book';card.innerHTML=`<strong>${esc(book.title)}</strong><div class="muted">${esc(book.author || 'Unknown author')}</div><small>ID: ${Number(book.id)}</small>`;list.appendChild(card);});
+      if (!(data.books||[]).length) list.innerHTML='<p class="muted">This user has not uploaded any personal books yet.</p>';
+      panel.scrollIntoView({behavior:'smooth',block:'start'});
+    } catch(e) { list.innerHTML=`<p class="error">${esc(e.message || 'Could not load student books.')}</p>`; }
+  }
+  async function deleteUser(id) {
+    if (!confirm('Are you sure you want to permanently delete this user?')) return;
+    try { await request(`/admin/users/${id}`, {method:'DELETE'}); message('User deleted successfully.'); await loadAdminData(); }
+    catch(e) { message(e.message || 'Could not delete user.', true); }
+  }
+  async function deleteBook(id,title) {
+    if (!confirm(`Permanently delete “${title}”? This may remove it from student libraries.`)) return;
+    try { await request(`/admin/books/${id}`, {method:'DELETE'}); message('Book deleted successfully.'); await Promise.all([loadAdminBooks(),loadAdminData()]); }
+    catch(e) { message(e.message || 'Could not delete book.', true); }
+  }
+  async function loadSystemLogs() {
+    const container=$('admin-logs-container'); container.textContent='Fetching system logs…';
+    try {
+      const data=await request('/admin/logs'); container.innerHTML='';
+      (data.logs||[]).forEach(log=>{const row=document.createElement('div');row.className='log';row.innerHTML=`<span class="log-time">[${esc(log.time)}]</span> <span class="log-user">${esc(log.user)}:</span> <span>${esc(log.action)}</span>`;container.appendChild(row);});
+      if (!(data.logs||[]).length) container.textContent='No activity logs found.';
+    } catch(e) { container.innerHTML=`<span class="error">${esc(e.message || 'Failed to load system logs.')}</span>`; }
+  }
+  document.addEventListener('click', event=>{
+    const view=event.target.closest('[data-view-user]'); if(view) viewStudentBooks(Number(view.dataset.viewUser),view.dataset.userName || 'student');
+    const delUser=event.target.closest('[data-delete-user]'); if(delUser) deleteUser(Number(delUser.dataset.deleteUser));
+    const delBook=event.target.closest('[data-delete-book]'); if(delBook) deleteBook(Number(delBook.dataset.deleteBook),delBook.dataset.bookTitle || 'this book');
+  });
+  $('refresh-all').addEventListener('click',()=>{message('');loadAdminData();loadAdminBooks();loadSystemLogs();});
+  $('refresh-books').addEventListener('click',loadAdminBooks); $('refresh-logs').addEventListener('click',loadSystemLogs);
+  $('close-student-books').addEventListener('click',()=>{$('student-books-panel').hidden=true;});
+  $('logout-link').addEventListener('click',event=>{event.preventDefault();localStorage.removeItem('user');window.location.href='auth.html';});
+  if (requireAdmin()) { loadAdminData(); loadAdminBooks(); loadSystemLogs(); }
+})();
+</script>
+</body>
+</html>

@@ -51,3 +51,31 @@ class Bookmark(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=False)
     position = db.Column(db.Integer, default=0) # Character index or page number
+
+class ReadingProgress(db.Model):
+    """Per-user aggregate reading progress for a book."""
+    __tablename__ = 'reading_progress'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False, index=True)
+    progress_percent = db.Column(db.Float, nullable=False, default=0.0)
+    total_seconds = db.Column(db.Integer, nullable=False, default=0)
+    last_read_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed = db.Column(db.Boolean, nullable=False, default=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'book_id', name='uq_reading_progress_user_book'),)
+    user = db.relationship('User', backref=db.backref('reading_progress', cascade='all, delete-orphan'))
+    book = db.relationship('Book', backref=db.backref('reading_progress', cascade='all, delete-orphan'))
+
+
+class ReadingSession(db.Model):
+    """Daily reading time per user and book, used for the weekly dashboard."""
+    __tablename__ = 'reading_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=False, index=True)
+    session_date = db.Column(db.Date, nullable=False, index=True)
+    seconds_read = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    __table_args__ = (db.UniqueConstraint('user_id', 'book_id', 'session_date', name='uq_reading_session_user_book_day'),)
+    user = db.relationship('User', backref=db.backref('reading_sessions', cascade='all, delete-orphan'))
+    book = db.relationship('Book', backref=db.backref('reading_sessions', cascade='all, delete-orphan'))
