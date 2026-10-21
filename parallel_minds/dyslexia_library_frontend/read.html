@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReadApt - Immersive Reader</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-family: system-ui, sans-serif;
+            --page-bg: #ffffff;
+            --canvas-bg: #f0f2f5;
+            --text-color: #1a1a1a;
+            --font-size: 18px;
+            --line-height: 1.6;
+            --letter-spacing: 0px;
+            --word-spacing: 0px; /* NEW: Added word spacing variable */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0; padding: 0; display: flex; height: 100vh;
+            font-family: var(--font-family);
+            background-color: var(--canvas-bg);
+            color: var(--text-color);
+            transition: all 0.4s ease;
+        }
+
+        /* Sidebar Styling */
+        #sidebar {
+            width: 350px; background: #f8f9fa; padding: 25px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.05); overflow-y: auto;
+            color: #333; border-right: 1px solid #dee2e6; z-index: 100;
+            position: relative;
+        }
+
+        .control-group { margin-bottom: 25px; background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .control-group label { display: block; font-weight: bold; margin-bottom: 12px; color: #495057; }
+
+        button {
+            width: 100%; padding: 12px; margin-bottom: 8px;
+            border: none; border-radius: 5px; cursor: pointer; transition: background 0.2s;
+            font-weight: bold; font-size: 15px;
+        }
+
+        .primary-btn { background: #007bff; color: white; }
+        .primary-btn:hover { background: #0056b3; }
+        #mode-toggle-btn { background: #28a745; color: white; }
+
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        /* Page Layout Styling */
+        #reader-container {
+            flex-grow: 1; padding: 40px; overflow-y: auto;
+            transition: background-color 0.4s ease; position: relative;
+        }
+
+        #content-wrapper {
+            max-width: 850px; margin: 0 auto;
+            background-color: var(--page-bg); padding: 60px 80px;
+            border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: all 0.4s ease; position: relative; z-index: 10;
+        }
+
+        /* Click-to-Speak Word Styling */
+        /* Keep each word selectable as part of a normal text passage. */
+        #content {
+            user-select: text;
+            -webkit-user-select: text;
+            cursor: text;
+        }
+        .word-span {
+            display: inline;
+            cursor: text;
+            user-select: text;
+            -webkit-user-select: text;
+            transition: background-color 0.1s, color 0.1s;
+            border-radius: 3px;
+            padding: 0 1px;
+        }
+        .word-span:hover { background-color: rgba(0, 123, 255, 0.1); }
+        .word-span.speaking { background-color: #ffc107; color: #000; }
+
+        /* --- FEATURE 1: READING RULER --- */
+        #reading-ruler {
+            display: none;
+            position: fixed;
+            left: 350px; /* Offset by sidebar width */
+            width: calc(100% - 350px);
+            height: 140px;
+            background: rgba(0, 0, 0, 0.04);
+            border-top: 3px solid rgba(0, 123, 255, 0.3);
+            border-bottom: 3px solid rgba(0, 123, 255, 0.3);
+            pointer-events: none; /* Let clicks pass through to the text! */
+            z-index: 50;
+            transform: translateY(-50%);
+        }
+
+        /* Floating AI Pill Button */
+        #floating-summarize-btn {
+            display: none;
+            position: fixed;
+            z-index: 999;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            cursor: pointer;
+            font-size: 13px;
+            width: auto;
+            min-width: 90px;
+            white-space: nowrap;
+        }
+
+        /* AI Modal */
+        #ai-modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center;
+        }
+        #ai-modal {
+            background: var(--page-bg); color: var(--text-color);
+            padding: 30px; border-radius: 12px; max-width: 500px; width: 90%;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.4);
+            font-family: var(--font-family); line-height: var(--line-height); letter-spacing: var(--letter-spacing);
+        }
+
+        .back-btn { display: inline-block; margin-bottom: 30px; text-decoration: none; color: #007bff; font-weight: bold; }
+        #book-title { font-size: 2.5rem; margin-bottom: 5px; margin-top: 0; }
+        #book-author { color: #666; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        
+        /* UPDATED: Content now uses the word-spacing CSS variable */
+        #content { white-space: pre-wrap; font-size: var(--font-size); line-height: var(--line-height); letter-spacing: var(--letter-spacing); word-spacing: var(--word-spacing); }
+        
+        .modal-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+
+        /* --- PROGRESS BAR STYLES --- */
+        #progress-container {
+            position: fixed; top: 0; left: 0; width: 100%; 
+            height: 12px; /* CHANGED: Increased from 6px to 12px to make it thicker */
+            background: rgba(0,0,0,0.1); /* Made the background track slightly darker */
+            z-index: 2000; pointer-events: none;
+        }
+        #progress-bar {
+            height: 100%; background: var(--success-color); width: 0%;
+            transition: width 0.2s ease-out; 
+            box-shadow: 0 2px 10px rgba(40, 167, 69, 0.9); /* Made the glow slightly stronger */
+            border-bottom-right-radius: 4px; /* Added a nice rounded edge to the bar */
+        }
+
+        /* --- IRLEN COLOR SWATCHES --- */
+        .color-swatches { display: flex; gap: 10px; margin-top: 10px; }
+        .swatch {
+            width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+            border: 2px solid rgba(0,0,0,0.1); transition: transform 0.2s;
+        }
+        .swatch:hover { transform: scale(1.15); border-color: rgba(0,0,0,0.3); }
+
+        /* Responsive layout */
+        #sidebar-toggle {
+            display: none;
+            position: fixed;
+            top: 18px;
+            left: 16px;
+            z-index: 1200;
+            width: auto;
+            margin: 0;
+            padding: 10px 14px;
+            background: #007bff;
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(0,0,0,.18);
+        }
+        #sidebar-backdrop {
+            display: none;
+        }
+        img, video, iframe {
+            max-width: 100%;
+        }
+        #book-title {
+            overflow-wrap: anywhere;
+        }
+        #content {
+            overflow-wrap: anywhere;
+        }
+        .modal-controls > button {
+            min-width: 0;
+        }
+
+        @media (max-width: 1100px) {
+            #sidebar {
+                width: 290px;
+                flex: 0 0 290px;
+                padding: 20px;
+            }
+            #reader-container {
+                padding: 28px;
+                min-width: 0;
+            }
+            #content-wrapper {
+                padding: 42px 38px;
+            }
+            #reading-ruler {
+                left: 290px;
+                width: calc(100% - 290px);
+            }
+        }
+
+        @media (max-width: 767px) {
+            html, body {
+                min-height: 100%;
+                height: 100%;
+                overflow: hidden;
+            }
+            body {
+                display: block;
+            }
+            #sidebar-toggle {
+                display: block;
+            }
+            #sidebar {
+                position: fixed;
+                top: 0;
+                bottom: 0;
+                left: 0;
+                width: min(88vw, 350px);
+                max-width: 100%;
+                height: 100dvh;
+                padding: 72px 16px 24px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                box-shadow: 4px 0 24px rgba(0,0,0,.18);
+                transform: translateX(-105%);
+                transition: transform .25s ease;
+                z-index: 1100;
+            }
+            body.sidebar-open #sidebar {
+                transform: translateX(0);
+            }
+            #sidebar-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,.42);
+                z-index: 1050;
+            }
+            body.sidebar-open #sidebar-backdrop {
+                display: block;
+            }
+            #reader-container {
+                width: 100%;
+                height: 100dvh;
+                padding: 70px 12px 16px;
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            #content-wrapper {
+                width: 100%;
+                max-width: 100%;
+                min-height: calc(100dvh - 90px);
+                padding: 24px 18px;
+                border-radius: 10px;
+            }
+            .back-btn {
+                margin-bottom: 20px;
+            }
+            #book-title {
+                font-size: clamp(1.6rem, 7vw, 2.2rem);
+                line-height: 1.2;
+            }
+            #book-author {
+                margin-bottom: 24px;
+                padding-bottom: 14px;
+            }
+            #content {
+                font-size: var(--font-size);
+                line-height: var(--line-height);
+            }
+            .control-group {
+                padding: 12px;
+                margin-bottom: 16px;
+            }
+            .color-swatches {
+                flex-wrap: wrap;
+            }
+            #reading-ruler {
+                left: 0;
+                width: 100%;
+                height: 110px;
+            }
+            #floating-summarize-btn {
+                position: fixed;
+                max-width: calc(100vw - 24px);
+                white-space: normal;
+            }
+            #ai-modal {
+                width: calc(100% - 24px);
+                max-width: 500px;
+                max-height: 85dvh;
+                overflow-y: auto;
+                padding: 22px 18px;
+            }
+            .modal-controls {
+                flex-direction: column;
+            }
+            .modal-controls button {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 380px) {
+            #reader-container {
+                padding-left: 8px;
+                padding-right: 8px;
+            }
+            #content-wrapper {
+                padding: 20px 13px;
+            }
+            #sidebar {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                transition-duration: .01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <button id="sidebar-toggle" type="button" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar()">☰ Reading Tools</button>
+    <div id="sidebar-backdrop" onclick="closeSidebar()" aria-hidden="true"></div>
+
+    <div id="sidebar">
+        <h2 style="margin-top:0; border-bottom: 2px solid #eee; padding-bottom: 10px;">Reading Tools</h2>
+
+        <div class="control-group">
+            <button id="mode-toggle-btn" onclick="toggleDyslexiaMode()">Enable Dyslexia Theme</button>
+            <label style="margin-top: 15px;">Text Customization</label>
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: normal;">Size (<span id="size-val-display">18</span>px)</label>
+                <input type="range" id="size-slider" min="14" max="36" value="18" oninput="changeSize(this.value)">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="font-size: 12px; font-weight: normal;">Line Spacing</label>
+                <input type="range" id="line-slider" min="1.2" max="3.0" step="0.1" value="1.6" oninput="changeLineHeight(this.value)">
+            </div>
+
+            <div>
+                <label style="font-size: 12px; font-weight: normal;">Word Spacing (<span id="word-val-display">0</span>px)</label>
+                <input type="range" id="word-slider" min="0" max="20" step="1" value="0" oninput="changeWordSpacing(this.value)">
+            </div>
+
+            <div style="margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 15px;">
+                <label style="font-size: 12px; color: #666;">Page Tint (Visual Stress Relief)</label>
+                <div class="color-swatches">
+                    <div class="swatch" style="background: #ffffff;" onclick="setPageTint('#ffffff', '#f0f2f5')" title="Default White"></div>
+                    <div class="swatch" style="background: #fdf5e6;" onclick="setPageTint('#fdf5e6', '#e8e1d5')" title="Soft Yellow"></div>
+                    <div class="swatch" style="background: #e6f3ff;" onclick="setPageTint('#e6f3ff', '#d1e5f8')" title="Soft Blue"></div>
+                    <div class="swatch" style="background: #e6ffe6;" onclick="setPageTint('#e6ffe6', '#ccebce')" title="Soft Mint"></div>
+                    <div class="swatch" style="background: #ffebe6;" onclick="setPageTint('#ffebe6', '#f5d6ce')" title="Soft Peach"></div>
+                </div>
+            </div>
+        </div>
+        <div class="control-group" style="background: #e6f9ec; border-color: #c3e6cb;">
+            <label style="color: #155724;">Library Sync</label>
+            <button id="save-progress-btn" onclick="saveReadingProgress()" style="background: #28a745; color: white; margin-bottom: 0;">💾 Save Progress to Cloud</button>
+        </div>
+
+        <div class="control-group" style="background: #e8f4f8; border-color: #bee5eb;">
+            <label style="color: #0c5460;">Cognitive Focus</label>
+            <button id="bionic-btn" onclick="toggleBionicReading()" style="background: #17a2b8; color: white;">🧠 Bionic Reading: OFF</button>
+            <button id="ruler-btn" onclick="toggleReadingRuler()" style="background: #6f42c1; color: white;">📏 Reading Ruler: OFF</button>
+        </div>
+
+        
+
+        <div class="control-group" style="background: #fff9e6; border-color: #ffeeba;">
+            <label style="color: #856404;">Audio Assistance</label>
+            <button id="tts-play-btn" onclick="startFullTTS()" style="background: #ffc107; color: #333;">▶ Read Selection</button>
+            <button id="tts-stop-btn" onclick="stopTTS()" style="display: none; background: #dc3545; color: white;">■ Stop Audio</button>
+
+            <div style="margin-top: 15px;">
+                <label style="font-size: 13px; font-weight: normal;">Speed: <span id="speed-val">0.9</span>x</label>
+                <input type="range" id="tts-speed" min="0.5" max="1.5" step="0.1" value="0.9" oninput="document.getElementById('speed-val').innerText = this.value">
+            </div>
+            <p style="font-size: 11px; color: #777; margin-top: 10px;">*Tip: Click a single word to hear it spoken.</p>
+        </div>
+    </div>
+
+    <div id="reading-ruler"></div>
+
+    <div id="reader-container">
+        <div id="content-wrapper">
+            <a href="index.html" class="back-btn">← Back to Library</a>
+            <h1 id="book-title">Loading book...</h1>
+            <h3 id="book-author"></h3>
+            <div id="content">Loading content...</div>
+        </div>
+    </div>
+
+    <button id="floating-summarize-btn" onclick="triggerAiSummary()">✨ Summarize</button>
+
+    <div id="ai-modal-overlay">
+        <div id="ai-modal">
+            <h3 style="margin-top: 0; color: #007bff; border-bottom: 2px solid #eee; padding-bottom: 10px; font-size: 1.2rem;">✨ AI Explanation</h3>
+            <div id="ai-modal-content" style="margin-bottom: 20px; font-size: 0.95em;"></div>
+
+            <div class="modal-controls">
+                <button id="ai-tts-play-btn" onclick="playAiTTS()" style="background: #28a745; color: white; display: none;">🔊 Read Explanation</button>
+                <button id="ai-tts-stop-btn" onclick="stopAiTTS()" style="background: #dc3545; color: white; display: none;">■ Stop Audio</button>
+            </div>
+            <button onclick="closeAiModal()" style="background: #6c757d; color: white; margin-bottom: 0;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const synth = window.speechSynthesis;
+        let isDyslexiaMode = false;
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookId = urlParams.get('id');
+
+        // Mobile reading-tools drawer
+        function toggleSidebar() {
+            const isOpen = document.body.classList.toggle('sidebar-open');
+            const toggle = document.getElementById('sidebar-toggle');
+            toggle.setAttribute('aria-expanded', String(isOpen));
+            toggle.innerText = isOpen ? '✕ Close Tools' : '☰ Reading Tools';
+        }
+        function closeSidebar() {
+            document.body.classList.remove('sidebar-open');
+            const toggle = document.getElementById('sidebar-toggle');
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.innerText = '☰ Reading Tools';
+        }
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 767) closeSidebar();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') closeSidebar();
+        });
+
+        // --- 1. Master Toggle ---
+        function toggleDyslexiaMode() {
+            isDyslexiaMode = !isDyslexiaMode;
+            const btn = document.getElementById('mode-toggle-btn');
+            if (isDyslexiaMode) {
+                document.documentElement.style.setProperty('--font-family', "'Lexend', sans-serif");
+                document.documentElement.style.setProperty('--page-bg', '#fdf5e6');
+                document.documentElement.style.setProperty('--canvas-bg', '#e8e1d5');
+                document.documentElement.style.setProperty('--line-height', '2.0');
+                document.documentElement.style.setProperty('--letter-spacing', '1.5px');
+                document.documentElement.style.setProperty('--word-spacing', '6px'); // Auto-add word spacing for Dyslexia Mode
+                btn.innerText = "Revert to Normal Theme";
+                btn.style.background = "#6c757d";
+            } else {
+                document.documentElement.style.setProperty('--font-family', "system-ui, sans-serif");
+                document.documentElement.style.setProperty('--page-bg', '#ffffff');
+                document.documentElement.style.setProperty('--canvas-bg', '#f0f2f5');
+                document.documentElement.style.setProperty('--line-height', '1.6');
+                document.documentElement.style.setProperty('--letter-spacing', '0px');
+                document.documentElement.style.setProperty('--word-spacing', document.getElementById('word-slider').value + 'px'); // Revert to slider value
+                btn.innerText = "Enable Dyslexia Theme";
+                btn.style.background = "#28a745";
+            }
+        }
+        // --- BOOKMARK LOGIC ---
+
+        // Helper to get user ID safely
+        function getUserId() {
+            try {
+                const userData = localStorage.getItem('user');
+                if (userData && userData !== "undefined") {
+                    return JSON.parse(userData).id;
+                }
+            } catch (e) {}
+            return null;
+        }
+
+        async function loadReadingProgress() {
+            const userId = getUserId();
+            if (!userId || !bookId) return; 
+            
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/bookmarks/${userId}/${bookId}`);
+                const data = await response.json();
+                
+                if (data.position > 0) {
+                    // Because your layout uses a scrolling #reader-container instead of the window,
+                    // we must scroll the container, not the window.
+                    const container = document.getElementById('reader-container');
+                    container.scrollTo({
+                        top: data.position,
+                        behavior: 'smooth'
+                    });
+                    console.log(`Resumed reading at pixel position: ${data.position}`);
+                }
+            } catch (error) {
+                console.error("Failed to load bookmark.", error);
+            }
+        }
+
+        async function saveReadingProgress() {
+            const userId = getUserId();
+            if (!userId || !bookId) {
+                alert("You must be logged in to save progress.");
+                return;
+            }
+            
+            // Capture the scroll position from the specific reading container
+            const currentScrollPosition = Math.round(document.getElementById('reader-container').scrollTop);
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/bookmarks', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        book_id: bookId,
+                        position: currentScrollPosition
+                    })
+                });
+
+                if (response.ok) {
+                    // FIX: Target the button by ID instead of the fleeting event object
+                    const btn = document.getElementById('save-progress-btn');
+                    const originalText = btn.innerText;
+                    
+                    btn.innerText = "✅ Saved!";
+                    btn.style.background = "#20c997"; // Teal success color
+                    
+                    setTimeout(() => {
+                        btn.innerText = originalText;
+                        btn.style.background = "#28a745";
+                    }, 2000);
+                } else {
+                    alert("Server failed to save bookmark.");
+                }
+            } catch (error) {
+                // Now, if this logs an error, it is genuinely a network issue!
+                console.error("Failed to save progress.", error);
+                alert("Connection failed.");
+            }
+        }
+
+        // --- 2. Load Book & Wrap Words ---
+        async function loadBookContent() {
+            if (!bookId) return;
+            try {
+                const response = await fetch(`http://127.0.0.1:5000/api/books/${bookId}`);
+                const book = await response.json();
+                document.getElementById('book-title').innerText = book.title;
+                document.getElementById('book-author').innerText = `By: ${book.author}`;
+
+                const contentDiv = document.getElementById('content');
+                let cleanText = book.content.replace(/\n{3,}/g, '\n\n');
+
+                contentDiv.innerHTML = cleanText.split(/(\s+)/).map(part => {
+                    if (part.trim().length === 0) return part;
+                    return `<span class="word-span" onclick="speakWord(this)">${part}</span>`;
+                }).join('');
+                setTimeout(loadReadingProgress, 500);
+
+            } catch (error) {
+                document.getElementById('content').innerText = "Error loading book.";
+            }
+        }
+
+        // --- FEATURE: Bionic Reading Mode (BLAZING FAST CLONE) ---
+        let isBionic = false;
+        function toggleBionicReading() {
+            isBionic = !isBionic;
+            const btn = document.getElementById('bionic-btn');
+            const oldContent = document.getElementById('content');
+
+            btn.disabled = true;
+            btn.innerText = "⏳ Processing...";
+
+            // Short timeout to let the browser update the button text visually first
+            setTimeout(() => {
+                // Clone the entire content node perfectly in memory
+                const newContent = oldContent.cloneNode(true);
+                const spans = newContent.getElementsByClassName('word-span');
+
+                if (isBionic) {
+                    for (let i = 0; i < spans.length; i++) {
+                        const span = spans[i];
+                        if (!span.hasAttribute('data-word')) span.setAttribute('data-word', span.innerText);
+                        const word = span.getAttribute('data-word');
+                        if (word.length > 2) {
+                            const mid = Math.ceil(word.length / 2);
+                            span.innerHTML = `<b style="font-weight:900;">${word.substring(0, mid)}</b>${word.substring(mid)}`;
+                        } else if (word.length > 0) {
+                            span.innerHTML = `<b style="font-weight:900;">${word}</b>`;
+                        }
+                    }
+                    btn.innerText = "🧠 Bionic Reading: ON";
+                    btn.style.background = "#5a32a3"; // Nice deep purple when active
+                } else {
+                    for (let i = 0; i < spans.length; i++) {
+                        const span = spans[i];
+                        if (span.hasAttribute('data-word')) span.innerHTML = span.getAttribute('data-word');
+                    }
+                    btn.innerText = "🧠 Bionic Reading: OFF";
+                    btn.style.background = "#17a2b8";
+                }
+
+                // Swap the old DOM tree with the new highly optimized one instantly
+                oldContent.parentNode.replaceChild(newContent, oldContent);
+                btn.disabled = false;
+            }, 10);
+        }
+
+        // --- FEATURE: Reading Ruler ---
+        let isRulerOn = false;
+        function toggleReadingRuler() {
+            isRulerOn = !isRulerOn;
+            const ruler = document.getElementById('reading-ruler');
+            const btn = document.getElementById('ruler-btn');
+
+            if (isRulerOn) {
+                ruler.style.display = 'block';
+                btn.innerText = "📏 Reading Ruler: ON";
+                btn.style.background = "#5a32a3";
+            } else {
+                ruler.style.display = 'none';
+                btn.innerText = "📏 Reading Ruler: OFF";
+                btn.style.background = "#6f42c1";
+            }
+        }
+
+        // Make the ruler follow the mouse
+        document.addEventListener('mousemove', (e) => {
+            if (isRulerOn) {
+                document.getElementById('reading-ruler').style.top = e.clientY + 'px';
+            }
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (isRulerOn && e.touches.length) {
+                document.getElementById('reading-ruler').style.top = e.touches[0].clientY + 'px';
+            }
+        }, { passive: true });
+
+        // --- Single Click-to-Speak ---
+        function speakWord(element) {
+            // If the user has selected a passage, preserve that selection for copying
+            // or AI summarization instead of treating the interaction as a word click.
+            const currentSelection = window.getSelection();
+            if (currentSelection && !currentSelection.isCollapsed &&
+                currentSelection.toString().trim().length > 0) {
+                return;
+            }
+
+            if (synth.speaking) synth.cancel();
+
+            document.querySelectorAll('.word-span').forEach(el => el.classList.remove('speaking'));
+            element.classList.add('speaking');
+
+            const utterance = new SpeechSynthesisUtterance(element.innerText);
+            utterance.rate = document.getElementById('tts-speed').value;
+
+            utterance.onend = () => { element.classList.remove('speaking'); };
+            synth.speak(utterance);
+        }
+
+        // --- Full Page TTS ---
+        function startFullTTS() {
+            synth.cancel();
+            let text = window.getSelection().toString().trim() || document.getElementById('content').innerText;
+            if (!text) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = document.getElementById('tts-speed').value;
+            document.getElementById('tts-play-btn').style.display = 'none';
+            document.getElementById('tts-stop-btn').style.display = 'block';
+            utterance.onend = stopTTS;
+            synth.speak(utterance);
+        }
+
+        function stopTTS() {
+            synth.cancel();
+            document.getElementById('tts-play-btn').style.display = 'block';
+            document.getElementById('tts-stop-btn').style.display = 'none';
+            document.querySelectorAll('.word-span').forEach(el => el.classList.remove('speaking'));
+        }
+
+        // --- AI Summarizer ---
+        document.addEventListener('mouseup', (e) => {
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            const btn = document.getElementById('floating-summarize-btn');
+            const readingArea = document.getElementById('content');
+            let isInsideReadingArea = false;
+
+            if (selection.rangeCount > 0) {
+                let container = selection.getRangeAt(0).commonAncestorContainer;
+                if (container.nodeType === 3) container = container.parentNode;
+                // Important: we need to find the dynamic #content element because Bionic Reading clones it
+                const currentReadingArea = document.getElementById('content');
+                if (currentReadingArea) isInsideReadingArea = currentReadingArea.contains(container);
+            }
+
+            if (selectedText.length > 0 && isInsideReadingArea) {
+                // Anchor the Summarize pill to the selected text, not the page/sidebar.
+                // Use viewport coordinates because the button is position: fixed.
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                const reader = document.getElementById('reader-container');
+                const readerRect = reader.getBoundingClientRect();
+
+                btn.style.display = 'block';
+                const btnRect = btn.getBoundingClientRect();
+                const margin = 8;
+                const gap = 10;
+
+                // Keep the button inside the reading pane so it never appears over Reading Tools.
+                const minX = Math.max(margin, readerRect.left + margin);
+                const maxX = Math.min(window.innerWidth - btnRect.width - margin,
+                                      readerRect.right - btnRect.width - margin);
+                let left = rect.left + (rect.width / 2) - (btnRect.width / 2);
+                left = Math.max(minX, Math.min(left, Math.max(minX, maxX)));
+
+                let top = rect.top - btnRect.height - gap;
+                if (top < margin) top = rect.bottom + gap;
+                top = Math.min(top, window.innerHeight - btnRect.height - margin);
+
+                btn.style.left = `${left}px`;
+                btn.style.top = `${Math.max(margin, top)}px`;
+            } else if (e.target.id !== 'floating-summarize-btn') {
+                btn.style.display = 'none';
+            }
+        });
+
+        async function triggerAiSummary() {
+            const selection = window.getSelection().toString().trim();
+            document.getElementById('floating-summarize-btn').style.display = 'none';
+            const modal = document.getElementById('ai-modal-overlay');
+            const content = document.getElementById('ai-modal-content');
+
+            document.getElementById('ai-tts-play-btn').style.display = 'none';
+            document.getElementById('ai-tts-stop-btn').style.display = 'none';
+            modal.style.display = 'flex';
+            content.innerHTML = "<em>Analyzing text...</em>";
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/summarize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: selection })
+                });
+                const data = await response.json();
+                
+                if (data.error) {
+                    content.innerHTML = `<strong style="color: #dc3545;">Server Error:</strong> ${data.error}<br><br><small>Check your Python terminal for details!</small>`;
+                } else {
+                    content.innerHTML = data.summary.replace(/\n/g, '<br>');
+                    document.getElementById('ai-tts-play-btn').style.display = 'block';
+                }
+            } catch (err) {
+                content.innerText = "Error connecting to AI server.";
+            }
+        }
+
+        function playAiTTS() {
+            synth.cancel();
+            const textToRead = document.getElementById('ai-modal-content').innerText;
+            if (!textToRead) return;
+            const utterance = new SpeechSynthesisUtterance(textToRead);
+            utterance.rate = document.getElementById('tts-speed').value;
+            document.getElementById('ai-tts-play-btn').style.display = 'none';
+            document.getElementById('ai-tts-stop-btn').style.display = 'block';
+            utterance.onend = stopAiTTS;
+            synth.speak(utterance);
+        }
+
+        function stopAiTTS() {
+            synth.cancel();
+            document.getElementById('ai-tts-play-btn').style.display = 'block';
+            document.getElementById('ai-tts-stop-btn').style.display = 'none';
+        }
+
+        function closeAiModal() {
+            synth.cancel();
+            stopAiTTS();
+            document.getElementById('ai-modal-overlay').style.display = 'none';
+            window.getSelection().removeAllRanges();
+        }
+
+        // --- Visual Settings ---
+        function changeSize(s) {
+            document.documentElement.style.setProperty('--font-size', s + 'px');
+            document.getElementById('size-val-display').innerText = s;
+        }
+        function changeLineHeight(h) { document.documentElement.style.setProperty('--line-height', h); }
+        
+        // NEW: Word Spacing Change Function
+        function changeWordSpacing(w) { 
+            document.documentElement.style.setProperty('--word-spacing', w + 'px'); 
+            document.getElementById('word-val-display').innerText = w;
+        }
+
+        function setPageTint(pageColor, canvasColor) {
+            document.documentElement.style.setProperty('--page-bg', pageColor);
+            document.documentElement.style.setProperty('--canvas-bg', canvasColor);
+
+            isDyslexiaMode = false;
+            const btn = document.getElementById('mode-toggle-btn');
+            btn.innerText = "Enable Dyslexia Theme";
+            btn.style.background = "#28a745";
+        }
+
+        // --- Progress Bar ---
+        const readerContainer = document.getElementById('reader-container');
+        readerContainer.addEventListener('scroll', () => {
+            const scrollTop = readerContainer.scrollTop;
+            const scrollHeight = readerContainer.scrollHeight - readerContainer.clientHeight;
+            const scrollPercentage = (scrollTop / scrollHeight) * 100;
+            document.getElementById('progress-bar').style.width = scrollPercentage + '%';
+        });
+
+        loadBookContent();
+        window.onbeforeunload = () => synth.cancel();
+        
+    </script>
+</body>
+</html>

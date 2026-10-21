@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReadAPT — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #007bff;
+    --primary-light: rgba(0,123,255,0.1);
+    --primary-glow: rgba(0,123,255,0.25);
+    --bg: #f4f4f9;
+    --surface: #ffffff;
+    --surface2: #f8f9ff;
+    --border: rgba(0,123,255,0.15);
+    --border-strong: rgba(0,123,255,0.3);
+    --text: #1a1a2e;
+    --text-muted: #6b7080;
+    --success: #28a745;
+    --success-bg: rgba(40,167,69,0.1);
+    --danger: #dc3545;
+    --danger-bg: rgba(220,53,69,0.1);
+    --warning: #ffc107;
+    --warning-bg: rgba(255,193,7,0.12);
+    --sidebar-w: 240px;
+    --font: 'Lexend', system-ui, sans-serif;
+    --mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w);
+    background: var(--surface);
+    border-right: 1px solid var(--border-strong);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    box-shadow: 2px 0 20px rgba(0,123,255,0.08);
+  }
+
+  .sidebar-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar-logo .brand {
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--primary);
+    text-shadow: 0 0 12px var(--primary-glow);
+    letter-spacing: -0.5px;
+  }
+  .sidebar-logo .brand span { color: var(--text); }
+  .sidebar-logo .sub {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .nav-section {
+    padding: 16px 12px 8px;
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-muted);
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    user-select: none;
+  }
+  .nav-item:hover { background: var(--primary-light); color: var(--primary); }
+  .nav-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    border-left-color: var(--primary);
+    font-weight: 500;
+    text-shadow: 0 0 8px var(--primary-glow);
+  }
+  .nav-item .icon { font-size: 18px; width: 20px; text-align: center; }
+
+  .sidebar-footer {
+    margin-top: auto;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .sidebar-footer .admin-badge {
+    display: inline-block;
+    background: var(--primary);
+    color: white;
+    font-size: 9px;
+    font-family: var(--mono);
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-bottom: 4px;
+  }
+
+  /* ── MAIN ── */
+  #main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 12px rgba(0,123,255,0.06);
+  }
+  #topbar .page-title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    text-shadow: 0 0 8px var(--primary-glow);
+  }
+  #topbar .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+  .btn.primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+    box-shadow: 0 0 12px var(--primary-glow);
+  }
+  .btn.primary:hover { opacity: 0.9; }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  .btn.danger:hover { background: var(--danger-bg); }
+  .btn.sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+
+  #content { padding: 32px; }
+
+  /* ── PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── STAT CARDS ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--primary);
+    opacity: 0.7;
+  }
+  .stat-card.green::before { background: var(--success); }
+  .stat-card.orange::before { background: var(--warning); }
+  .stat-card.red::before { background: var(--danger); }
+  .stat-label { font-size: 11px; font-family: var(--mono); color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
+  .stat-value { font-size: 32px; font-weight: 600; color: var(--text); margin: 6px 0 2px; text-shadow: 0 0 10px var(--primary-glow); }
+  .stat-sub { font-size: 12px; color: var(--text-muted); }
+
+  /* ── SECTION HEADER ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 15px; font-weight: 500; }
+
+  /* ── TABLE ── */
+  .table-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .table-toolbar {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .search-box {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+  }
+  .search-box input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+  }
+  .search-box input::placeholder { color: var(--text-muted); }
+  .search-icon { color: var(--text-muted); font-size: 15px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    padding: 11px 20px;
+    text-align: left;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 400;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--primary-light); }
+  tbody td { padding: 12px 20px; color: var(--text); vertical-align: middle; }
+  td.muted { color: var(--text-muted); font-size: 12px; }
+  td.mono { font-family: var(--mono); font-size: 12px; }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-family: var(--mono);
+    font-weight: 400;
+  }
+  .badge.normal { background: var(--primary-light); color: var(--primary); }
+  .badge.dyslexia { background: var(--warning-bg); color: #8a6200; }
+  .badge.public { background: var(--success-bg); color: #1a5c2a; }
+  .badge.uploaded { background: var(--primary-light); color: var(--primary); }
+
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--primary-light);
+    border: 1px solid var(--border-strong);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; color: var(--primary);
+    margin-right: 8px; vertical-align: middle;
+    text-shadow: none;
+  }
+
+  .actions { display: flex; gap: 6px; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(10,10,30,0.55);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    padding: 28px;
+    width: 480px;
+    max-width: 95vw;
+    box-shadow: 0 0 40px rgba(0,123,255,0.15);
+  }
+  .modal-title { font-size: 17px; font-weight: 500; margin-bottom: 20px; text-shadow: 0 0 8px var(--primary-glow); }
+  .form-group { margin-bottom: 16px; }
+  .form-group label { display: block; font-size: 12px; font-family: var(--mono); color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface2);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+  }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+
+  /* ── NOTIFICATION ── */
+  #notification {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--text);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    z-index: 300;
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #notification.show { transform: translateY(0); opacity: 1; }
+  #notification.success { background: var(--success); }
+  #notification.danger { background: var(--danger); }
+
+  /* ── OVERVIEW CHARTS ── */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 16px; color: var(--text-muted); font-family: var(--mono); letter-spacing: 1px; text-transform: uppercase; }
+
+  .bar-chart { display: flex; align-items: flex-end; gap: 8px; height: 120px; }
+  .bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; gap: 4px; }
+  .bar {
+    width: 100%; border-radius: 4px 4px 0 0;
+    background: linear-gradient(180deg, var(--primary) 0%, rgba(0,123,255,0.5) 100%);
+    min-height: 4px;
+    transition: opacity 0.2s;
+  }
+  .bar:hover { opacity: 0.8; }
+  .bar-label { font-size: 10px; font-family: var(--mono); color: var(--text-muted); }
+  .bar-val { font-size: 11px; font-weight: 500; color: var(--primary); }
+
+  .donut-row { display: flex; align-items: center; gap: 20px; }
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* ── SETTINGS ── */
+  .settings-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .settings-section h3 { font-size: 14px; font-weight: 500; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-info { font-size: 13px; }
+  .setting-info .setting-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .toggle {
+    width: 40px; height: 22px; border-radius: 11px; background: #ddd; border: none; cursor: pointer;
+    position: relative; transition: background 0.2s;
+  }
+  .toggle.on { background: var(--primary); box-shadow: 0 0 8px var(--primary-glow); }
+  .toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 16px; height: 16px; border-radius: 50%; background: white;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+
+  /* ── LOGS ── */
+  .log-entry {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { font-family: var(--mono); font-size: 11px; color: var(--text-muted); min-width: 80px; margin-top: 1px; }
+  .log-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+  .log-dot.info { background: var(--primary); }
+  .log-dot.success { background: var(--success); }
+  .log-dot.warning { background: var(--warning); }
+  .log-dot.error { background: var(--danger); }
+  .log-msg { flex: 1; line-height: 1.4; }
+  .log-user { font-size: 11px; color: var(--text-muted); font-family: var(--mono); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">Read<span>APT</span></div>
+    <div class="sub">Admin Console</div>
+  </div>
+
+  <div class="nav-section">Overview</div>
+  <div class="nav-item active" onclick="goto('overview', this)">
+    <span class="icon">📊</span> Dashboard
+  </div>
+
+  <div class="nav-section">Library</div>
+  <div class="nav-item" onclick="goto('users', this)">
+    <span class="icon">👥</span> Users
+  </div>
+  <div class="nav-item" onclick="goto('books', this)">
+    <span class="icon">📚</span> Books
+  </div>
+  <div class="nav-item" onclick="goto('bookmarks', this)">
+    <span class="icon">🔖</span> Bookmarks
+  </div>
+
+  <div class="nav-section">System</div>
+  <div class="nav-item" onclick="goto('logs', this)">
+    <span class="icon">📋</span> Activity Log
+  </div>
+  <div class="nav-item" onclick="goto('settings', this)">
+    <span class="icon">⚙️</span> Settings
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="admin-badge">ADMIN</div>
+    <div style="font-size:13px; font-weight:500;">Admin User</div>
+    <div style="font-size:11px;">admin@readapt.io</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <div class="page-title" id="topbar-title">Dashboard</div>
+    <div class="topbar-right">
+      <button class="btn sm" onclick="showAddUserModal()">＋ Add User</button>
+      <button class="btn sm primary" onclick="showAddBookModal()">＋ Add Book</button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ── DASHBOARD ── -->
+    <div class="page active" id="page-overview">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total Users</div>
+          <div class="stat-value" id="stat-users">0</div>
+          <div class="stat-sub">Registered accounts</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Total Books</div>
+          <div class="stat-value" id="stat-books">0</div>
+          <div class="stat-sub">In library</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Uploaded PDFs</div>
+          <div class="stat-value" id="stat-uploads">0</div>
+          <div class="stat-sub">By users</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Dyslexia Mode</div>
+          <div class="stat-value" id="stat-dyslexia">0</div>
+          <div class="stat-sub">Users enabled</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-title">Uploads (last 7 days)</div>
+          <div class="bar-chart" id="upload-chart"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">User modes</div>
+          <div class="donut-row">
+            <svg width="100" height="100" viewBox="0 0 100 100" id="donut-svg"></svg>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-title">Recent Users</div>
+        <button class="btn sm" onclick="goto('users', document.querySelector('.nav-item:nth-child(4))'))">View all →</button>
+      </div>
+      <div class="table-card">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Email</th><th>Mode</th><th>Books</th><th>Joined</th>
+          </tr></thead>
+          <tbody id="recent-users-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div class="page" id="page-users">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search users…" oninput="filterUsers(this.value)">
+          </div>
+          <button class="btn sm primary" onclick="showAddUserModal()">＋ New User</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Name</th><th>Email</th><th>Mode</th><th>Bookmarks</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="users-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── BOOKS ── -->
+    <div class="page" id="page-books">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search books…" oninput="filterBooks(this.value)">
+          </div>
+          <button class="btn sm primary" onclick="showAddBookModal()">＋ Add Book</button>
+        </div>
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Title</th><th>Author</th><th>Source</th><th>Uploaded By</th><th>Content (chars)</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="books-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── BOOKMARKS ── -->
+    <div class="page" id="page-bookmarks">
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Search bookmarks…" oninput="filterBookmarks(this.value)">
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>ID</th><th>User</th><th>Book</th><th>Position</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="bookmarks-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── LOGS ── -->
+    <div class="page" id="page-logs">
+      <div class="table-card">
+        <div class="table-toolbar" style="justify-content: space-between;">
+          <span style="font-size:13px; font-weight:500;">Recent Activity</span>
+          <button class="btn sm" onclick="clearLogs()">Clear logs</button>
+        </div>
+        <div id="logs-container"></div>
+      </div>
+    </div>
+
+    <!-- ── SETTINGS ── -->
+    <div class="page" id="page-settings">
+      <div class="settings-section">
+        <h3>API Configuration</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div>Gemini API Key</div>
+            <div class="setting-sub">Used for text summarization</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input type="password" id="gemini-key-input" placeholder="AIza…" style="width:240px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:8px; font-family:var(--mono); font-size:12px; background:var(--surface2); color:var(--text); outline:none;">
+            <button class="btn sm primary" onclick="saveGeminiKey()">Save</button>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div>Backend URL</div>
+            <div class="setting-sub">Flask API base URL</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="api-url-input" value="http://localhost:5000" style="width:240px; padding:7px 12px; border:1px solid var(--border-strong); border-radius:8px; font-family:var(--mono); font-size:12px; background:var(--surface2); color:var(--text); outline:none;">
+            <button class="btn sm primary" onclick="saveApiUrl()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Features</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div>Allow Public Uploads</div>
+            <div class="setting-sub">Let unauthenticated users upload PDFs</div>
+          </div>
+          <button class="toggle" id="toggle-public-upload" onclick="toggleSetting(this)"></button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div>Dyslexia Mode Default</div>
+            <div class="setting-sub">Enable dyslexia mode for new users by default</div>
+          </div>
+          <button class="toggle on" id="toggle-dyslexia" onclick="toggleSetting(this)"></button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div>AI Summarization</div>
+            <div class="setting-sub">Enable Gemini-powered summarization endpoint</div>
+          </div>
+          <button class="toggle on" id="toggle-ai" onclick="toggleSetting(this)"></button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>Danger Zone</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div style="color:var(--danger);">Delete All Uploaded Books</div>
+            <div class="setting-sub">Remove all user-uploaded PDFs from the database</div>
+          </div>
+          <button class="btn sm danger" onclick="confirmDanger('Clear all uploaded books?', () => { state.books = state.books.filter(b => b.source !== \'uploaded\'); renderAll(); notify(\'All uploaded books removed\', \'danger\'); })">Delete</button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div style="color:var(--danger);">Reset All Bookmarks</div>
+            <div class="setting-sub">Wipe all user bookmark positions</div>
+          </div>
+          <button class="btn sm danger" onclick="confirmDanger('Reset all bookmarks?', () => { state.bookmarks = []; renderAll(); notify('All bookmarks cleared', 'danger'); })">Reset</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Modals -->
+<div class="modal-overlay" id="add-user-modal">
+  <div class="modal">
+    <div class="modal-title">Add New User</div>
+    <div class="form-group"><label>Full Name</label><input type="text" id="new-user-name" placeholder="Jane Doe"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="new-user-email" placeholder="jane@example.com"></div>
+    <div class="form-group"><label>Password</label><input type="password" id="new-user-password" placeholder="••••••••"></div>
+    <div class="form-group"><label>Mode</label>
+      <select id="new-user-mode"><option value="normal">Normal</option><option value="dyslexia">Dyslexia</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-user-modal')">Cancel</button>
+      <button class="btn primary" onclick="addUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="add-book-modal">
+  <div class="modal">
+    <div class="modal-title">Add Book</div>
+    <div class="form-group"><label>Title</label><input type="text" id="new-book-title" placeholder="Book title"></div>
+    <div class="form-group"><label>Author</label><input type="text" id="new-book-author" placeholder="Author name"></div>
+    <div class="form-group"><label>Source</label>
+      <select id="new-book-source"><option value="public">Public</option><option value="uploaded">Uploaded</option></select>
+    </div>
+    <div class="form-group"><label>Content (excerpt/preview)</label>
+      <textarea id="new-book-content" rows="4" placeholder="Paste sample text or full content…" style="resize:vertical;"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('add-book-modal')">Cancel</button>
+      <button class="btn primary" onclick="addBook()">Add Book</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="edit-user-modal">
+  <div class="modal">
+    <div class="modal-title">Edit User</div>
+    <input type="hidden" id="edit-user-id">
+    <div class="form-group"><label>Full Name</label><input type="text" id="edit-user-name"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="edit-user-email"></div>
+    <div class="form-group"><label>Mode</label>
+      <select id="edit-user-mode"><option value="normal">Normal</option><option value="dyslexia">Dyslexia</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('edit-user-modal')">Cancel</button>
+      <button class="btn primary" onclick="saveUser()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal" style="width:360px;">
+    <div class="modal-title">Confirm Action</div>
+    <p id="confirm-msg" style="font-size:14px; color:var(--text-muted); margin-bottom:8px;"></p>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('confirm-modal')">Cancel</button>
+      <button class="btn danger" id="confirm-ok-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="notification"></div>
+
+<script>
+// ── STATE ──
+const state = {
+  users: [
+    { id: 1, name: 'Arjun Sharma', email: 'arjun@email.com', mode: 'dyslexia', bookmarks: 4 },
+    { id: 2, name: 'Priya Nair', email: 'priya@email.com', mode: 'normal', bookmarks: 2 },
+    { id: 3, name: 'Ravi Menon', email: 'ravi@email.com', mode: 'dyslexia', bookmarks: 7 },
+    { id: 4, name: 'Sonal Joshi', email: 'sonal@email.com', mode: 'normal', bookmarks: 0 },
+    { id: 5, name: 'Kiran Rao', email: 'kiran@email.com', mode: 'dyslexia', bookmarks: 3 },
+  ],
+  books: [
+    { id: 1, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', source: 'public', uploaded_by: null, content_len: 182000 },
+    { id: 2, title: 'Alice in Wonderland', author: 'Lewis Carroll', source: 'public', uploaded_by: null, content_len: 140000 },
+    { id: 3, title: 'My Research Notes', author: 'Unknown Author', source: 'uploaded', uploaded_by: 2, content_len: 45000 },
+    { id: 4, title: 'Phonics for All', author: 'Dr. Meera Das', source: 'uploaded', uploaded_by: 3, content_len: 98000 },
+  ],
+  bookmarks: [
+    { id: 1, user_id: 1, book_id: 1, position: 3400 },
+    { id: 2, user_id: 1, book_id: 2, position: 11000 },
+    { id: 3, user_id: 3, book_id: 4, position: 56000 },
+    { id: 4, user_id: 5, book_id: 1, position: 88200 },
+  ],
+  logs: [
+    { time: '10:42', type: 'success', msg: 'Book uploaded: "Phonics for All"', user: 'kiran@email.com' },
+    { time: '10:38', type: 'info', msg: 'User login', user: 'priya@email.com' },
+    { time: '10:21', type: 'info', msg: 'Summarization request sent to Gemini', user: 'arjun@email.com' },
+    { time: '09:57', type: 'success', msg: 'New user registered', user: 'sonal@email.com' },
+    { time: '09:45', type: 'warning', msg: 'PDF extraction returned empty text', user: 'ravi@email.com' },
+    { time: '09:30', type: 'info', msg: 'Bookmark saved at position 88200', user: 'kiran@email.com' },
+    { time: '09:15', type: 'error', msg: 'Login failed: invalid credentials (3 attempts)', user: 'unknown' },
+    { time: '08:50', type: 'success', msg: 'User login', user: 'arjun@email.com' },
+  ],
+  nextUserId: 6,
+  nextBookId: 5,
+  nextBmId: 5,
+};
+
+// ── NAVIGATION ──
+function goto(pageId, navEl) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + pageId).classList.add('active');
+  const titles = { overview:'Dashboard', users:'Users', books:'Books', bookmarks:'Bookmarks', logs:'Activity Log', settings:'Settings' };
+  document.getElementById('topbar-title').textContent = titles[pageId];
+  if (navEl) navEl.classList.add('active');
+  renderPage(pageId);
+}
+
+function renderPage(id) {
+  if (id === 'overview') renderOverview();
+  else if (id === 'users') renderUsers(state.users);
+  else if (id === 'books') renderBooks(state.books);
+  else if (id === 'bookmarks') renderBookmarks(state.bookmarks);
+  else if (id === 'logs') renderLogs();
+}
+
+function renderAll() {
+  renderOverview();
+  renderUsers(state.users);
+  renderBooks(state.books);
+  renderBookmarks(state.bookmarks);
+}
+
+// ── OVERVIEW ──
+function renderOverview() {
+  document.getElementById('stat-users').textContent = state.users.length;
+  document.getElementById('stat-books').textContent = state.books.length;
+  document.getElementById('stat-uploads').textContent = state.books.filter(b => b.source === 'uploaded').length;
+  document.getElementById('stat-dyslexia').textContent = state.users.filter(u => u.mode === 'dyslexia').length;
+
+  // Bar chart (fake 7-day data)
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const vals = [2,1,4,3,2,5,1];
+  const max = Math.max(...vals);
+  const chart = document.getElementById('upload-chart');
+  chart.innerHTML = days.map((d,i) => `
+    <div class="bar-wrap">
+      <div class="bar-val">${vals[i]}</div>
+      <div class="bar" style="height:${Math.max(8, (vals[i]/max)*100)}px"></div>
+      <div class="bar-label">${d}</div>
+    </div>`).join('');
+
+  // Donut
+  const normal = state.users.filter(u => u.mode === 'normal').length;
+  const dyslexia = state.users.length - normal;
+  const total = state.users.length || 1;
+  const pct = dyslexia / total;
+  const r = 35, cx = 50, cy = 50;
+  const circ = 2 * Math.PI * r;
+  const dash = pct * circ;
+  document.getElementById('donut-svg').innerHTML = `
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e8edf8" stroke-width="14"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#007bff" stroke-width="14"
+      stroke-dasharray="${dash} ${circ - dash}" stroke-dashoffset="${circ/4}"
+      stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+    <text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="14" font-weight="600" fill="#1a1a2e">${Math.round(pct*100)}%</text>`;
+  document.getElementById('donut-legend').innerHTML = `
+    <div class="legend-item"><div class="legend-dot" style="background:var(--primary)"></div>Dyslexia (${dyslexia})</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#e8edf8; border:1px solid #ccc"></div>Normal (${normal})</div>`;
+
+  // Recent users (last 5)
+  const tbody = document.getElementById('recent-users-body');
+  tbody.innerHTML = state.users.slice(-5).reverse().map(u => `
+    <tr>
+      <td><span class="avatar">${initials(u.name)}</span>${u.name}</td>
+      <td class="muted">${u.email}</td>
+      <td><span class="badge ${u.mode}">${u.mode}</span></td>
+      <td class="muted">${u.bookmarks}</td>
+      <td class="muted">Today</td>
+    </tr>`).join('');
+}
+
+// ── USERS ──
+function renderUsers(list) {
+  document.getElementById('users-body').innerHTML = list.map(u => `
+    <tr>
+      <td class="mono">#${u.id}</td>
+      <td><span class="avatar">${initials(u.name)}</span>${u.name}</td>
+      <td class="muted">${u.email}</td>
+      <td><span class="badge ${u.mode}">${u.mode}</span></td>
+      <td class="muted">${u.bookmarks}</td>
+      <td><div class="actions">
+        <button class="btn sm" onclick="openEditUser(${u.id})">Edit</button>
+        <button class="btn sm danger" onclick="deleteUser(${u.id})">Delete</button>
+      </div></td>
+    </tr>`).join('');
+}
+function filterUsers(q) {
+  const lq = q.toLowerCase();
+  renderUsers(state.users.filter(u => u.name.toLowerCase().includes(lq) || u.email.toLowerCase().includes(lq)));
+}
+
+// ── BOOKS ──
+function renderBooks(list) {
+  document.getElementById('books-body').innerHTML = list.map(b => `
+    <tr>
+      <td class="mono">#${b.id}</td>
+      <td style="font-weight:500">${b.title}</td>
+      <td class="muted">${b.author}</td>
+      <td><span class="badge ${b.source}">${b.source}</span></td>
+      <td class="muted">${b.uploaded_by ? '#' + b.uploaded_by : '—'}</td>
+      <td class="muted mono">${b.content_len.toLocaleString()}</td>
+      <td><div class="actions">
+        <button class="btn sm danger" onclick="deleteBook(${b.id})">Delete</button>
+      </div></td>
+    </tr>`).join('');
+}
+function filterBooks(q) {
+  const lq = q.toLowerCase();
+  renderBooks(state.books.filter(b => b.title.toLowerCase().includes(lq) || b.author.toLowerCase().includes(lq)));
+}
+
+// ── BOOKMARKS ──
+function renderBookmarks(list) {
+  document.getElementById('bookmarks-body').innerHTML = list.map(bm => {
+    const user = state.users.find(u => u.id === bm.user_id);
+    const book = state.books.find(b => b.id === bm.book_id);
+    return `<tr>
+      <td class="mono">#${bm.id}</td>
+      <td>${user ? user.name : 'Unknown'}</td>
+      <td>${book ? book.title : 'Unknown'}</td>
+      <td class="mono">${bm.position.toLocaleString()}</td>
+      <td><button class="btn sm danger" onclick="deleteBookmark(${bm.id})">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+function filterBookmarks(q) {
+  const lq = q.toLowerCase();
+  renderBookmarks(state.bookmarks.filter(bm => {
+    const user = state.users.find(u => u.id === bm.user_id);
+    const book = state.books.find(b => b.id === bm.book_id);
+    return (user && user.name.toLowerCase().includes(lq)) || (book && book.title.toLowerCase().includes(lq));
+  }));
+}
+
+// ── LOGS ──
+function renderLogs() {
+  document.getElementById('logs-container').innerHTML = state.logs.map(l => `
+    <div class="log-entry">
+      <div class="log-time">${l.time}</div>
+      <div class="log-dot ${l.type}"></div>
+      <div class="log-msg">
+        <div>${l.msg}</div>
+        <div class="log-user">${l.user}</div>
+      </div>
+    </div>`).join('');
+}
+function clearLogs() {
+  state.logs = [];
+  renderLogs();
+  notify('Activity log cleared');
+}
+
+// ── ADD / EDIT / DELETE ──
+function showAddUserModal() { document.getElementById('add-user-modal').classList.add('open'); }
+function showAddBookModal() { document.getElementById('add-book-modal').classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function addUser() {
+  const name = document.getElementById('new-user-name').value.trim();
+  const email = document.getElementById('new-user-email').value.trim();
+  const mode = document.getElementById('new-user-mode').value;
+  if (!name || !email) { notify('Name and email are required', 'danger'); return; }
+  state.users.push({ id: state.nextUserId++, name, email, mode, bookmarks: 0 });
+  addLog('success', `New user created: ${name}`, email);
+  closeModal('add-user-modal');
+  document.getElementById('new-user-name').value = '';
+  document.getElementById('new-user-email').value = '';
+  document.getElementById('new-user-password').value = '';
+  renderAll();
+  notify('User created successfully', 'success');
+}
+
+function openEditUser(id) {
+  const u = state.users.find(u => u.id === id);
+  if (!u) return;
+  document.getElementById('edit-user-id').value = u.id;
+  document.getElementById('edit-user-name').value = u.name;
+  document.getElementById('edit-user-email').value = u.email;
+  document.getElementById('edit-user-mode').value = u.mode;
+  document.getElementById('edit-user-modal').classList.add('open');
+}
+function saveUser() {
+  const id = parseInt(document.getElementById('edit-user-id').value);
+  const u = state.users.find(u => u.id === id);
+  if (!u) return;
+  u.name = document.getElementById('edit-user-name').value.trim();
+  u.email = document.getElementById('edit-user-email').value.trim();
+  u.mode = document.getElementById('edit-user-mode').value;
+  addLog('info', `User updated: ${u.name}`, u.email);
+  closeModal('edit-user-modal');
+  renderAll();
+  notify('User updated');
+}
+
+function deleteUser(id) {
+  confirmDanger('Delete this user and their bookmarks?', () => {
+    state.users = state.users.filter(u => u.id !== id);
+    state.bookmarks = state.bookmarks.filter(bm => bm.user_id !== id);
+    renderAll();
+    notify('User deleted', 'danger');
+  });
+}
+
+function addBook() {
+  const title = document.getElementById('new-book-title').value.trim();
+  const author = document.getElementById('new-book-author').value.trim() || 'Unknown Author';
+  const source = document.getElementById('new-book-source').value;
+  const content = document.getElementById('new-book-content').value.trim();
+  if (!title || !content) { notify('Title and content are required', 'danger'); return; }
+  state.books.push({ id: state.nextBookId++, title, author, source, uploaded_by: null, content_len: content.length });
+  addLog('success', `Book added: "${title}"`, 'admin');
+  closeModal('add-book-modal');
+  document.getElementById('new-book-title').value = '';
+  document.getElementById('new-book-author').value = '';
+  document.getElementById('new-book-content').value = '';
+  renderAll();
+  notify('Book added to library', 'success');
+}
+
+function deleteBook(id) {
+  confirmDanger('Delete this book?', () => {
+    state.books = state.books.filter(b => b.id !== id);
+    state.bookmarks = state.bookmarks.filter(bm => bm.book_id !== id);
+    renderAll();
+    notify('Book deleted', 'danger');
+  });
+}
+
+function deleteBookmark(id) {
+  state.bookmarks = state.bookmarks.filter(bm => bm.id !== id);
+  renderBookmarks(state.bookmarks);
+  notify('Bookmark removed');
+}
+
+// ── SETTINGS ──
+function toggleSetting(el) { el.classList.toggle('on'); }
+function saveGeminiKey() { notify('Gemini API key saved', 'success'); }
+function saveApiUrl() { notify('Backend URL saved', 'success'); }
+
+// ── HELPERS ──
+function initials(name) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+function addLog(type, msg, user) {
+  const now = new Date();
+  state.logs.unshift({ time: now.getHours() + ':' + String(now.getMinutes()).padStart(2,'0'), type, msg, user: user || 'admin' });
+}
+function notify(msg, type = '') {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+function confirmDanger(msg, cb) {
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-ok-btn').onclick = () => { closeModal('confirm-modal'); cb(); };
+  document.getElementById('confirm-modal').classList.add('open');
+}
+
+// Click outside modal to close
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+// Init
+renderAll();
+</script>
+</body>
+</html>
